@@ -4,11 +4,11 @@
 This is a light weight HTML parser which provide some function to search node in HTML file.
 
 ## Usage
-1. Parse HTML:
+1. Parse HTML:<br />
   ```root, err := Parse(html)```
   ```func Parse(html []byte) (*Node, error)``` receive a []byte and return a ```*Node```, if something wrong, it will return a ```nil```
   and a non-nil ```error```.
-2. Search Node:
+2. Search Node:<br />
   ```n, err := FindAll(root, `div[id="app" | class*="bb"]`)```
   ```func FindAll(n *Node, queryStr string) ([]*Node, error)``` receive a ```*Node``` as start position, a query string and return
   a ```[]*Node``` if success, else it will return a ```nil``` and a ```error```.
@@ -17,21 +17,21 @@ This is a light weight HTML parser which provide some function to search node in
 ## Query String
 
 ### Attribute Query
-1. ```div[class="your class"]```
+1. ```div[class="your class"]```<br />
   This will find all ```div``` nodes which class **is equal to** "your class".
-2. ```div[class="your class" & id="your id"]```
+2. ```div[class="your class" & id="your id"]```<br />
   This will find all ```div``` nodes which class **is equal to** "your class" **and** id **is equal to** "your id"
-3. ```div[class="your class" | id="your id"]```
+3. ```div[class="your class" | id="your id"]```<br />
   This will find all ```div``` nodes which class **is equal to** "your class" **or** id **is equal to** "your id"
-4. ```div[class!="your class"]```
+4. ```div[class!="your class"]```<br />
   This will find all ```div``` nodes which class **is not equal to** "your class"
-5. ```div[class*="your class"]```
+5. ```div[class*="your class"]```<br />
   This will find all ```div``` nodes which class **contains** "your class"
-6. ```div[class!*="your class"]```
+6. ```div[class!*="your class"]```<br />
   This will find all ```div``` nodes which class **not contains** "your class"
-7. ```div[class%="your regexp"]```
+7. ```div[class%="your regexp"]```<br />
   This will find all ```div``` nodes which class **match** "your regexp"
-8. ```div[class="your class"].h1[id="your id"]```
+8. ```div[class="your class"].h1[id="your id"]```<br />
   This will find all ```h1``` nodes which ```id``` **is equal to** "your id" and which parent node is a ```div``` which class
   **is equal to** "your class"
 
