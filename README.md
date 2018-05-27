@@ -1,9 +1,9 @@
-#nbmq
+# nbmq
 
-##Overview
+## Overview
 This is a light weight HTML parser which provide some function to search node in HTML file.
 
-##Usage
+## Usage
 1.Parse HTML:
   ```root, err := Parse(html)```
   ```func Parse(html []byte) (*Node, error)``` receive a []byte and return a ```*Node```, if something wrong, it will return a ```nil```
@@ -14,9 +14,9 @@ This is a light weight HTML parser which provide some function to search node in
   a ```[]*Node``` if success, else it will return a ```nil``` and a ```error```.
   Note: if no ```*Node``` match your query, the ```[]*Node``` returned will be ```nil```.This is only convenience for check result.
 
-##Query String
+## Query String
 
-###Attribute Query
+### Attribute Query
 1.```div[class="your class"]```
   This will find all ```div``` nodes which class **is equal to** "your class".
 2.```div[class="your class" & id="your id"]
@@ -35,6 +35,6 @@ This is a light weight HTML parser which provide some function to search node in
   This will find all ```h1``` nodes which ```id``` **is equal to** "your id" and which parent node is a ```div``` which class
   **is equal to** "your class"
 
-###Content Query
+### Content Query
 Content query is all the same as attribute query except the attribute name must be ```@content```.
 For example ```div[@content*="your content"]```
