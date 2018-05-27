@@ -19,9 +19,9 @@ This is a light weight HTML parser which provide some function to search node in
 ### Attribute Query
 1. ```div[class="your class"]```
   This will find all ```div``` nodes which class **is equal to** "your class".
-2. ```div[class="your class" & id="your id"]
+2. ```div[class="your class" & id="your id"]```
   This will find all ```div``` nodes which class **is equal to** "your class" **and** id **is equal to** "your id"
-3. ```div[class="your class" | id="your id"]
+3. ```div[class="your class" | id="your id"]```
   This will find all ```div``` nodes which class **is equal to** "your class" **or** id **is equal to** "your id"
 4. ```div[class!="your class"]```
   This will find all ```div``` nodes which class **is not equal to** "your class"
