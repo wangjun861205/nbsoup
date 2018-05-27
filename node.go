@@ -21,6 +21,21 @@ type Node struct {
 }
 
 func (n *Node) matchQ(q q) bool {
+	if q.name == "@content" {
+		switch q.operator {
+		case equal:
+			return n.Content == q.value
+		case notEqual:
+			return n.Content != q.value
+		case include:
+			return strings.Contains(n.Content, q.value)
+		case except:
+			return !strings.Contains(n.Content, q.value)
+		case reg:
+			re := regexp.MustCompile(q.value)
+			return re.MatchString(n.Content)
+		}
+	}
 	attr, ok := n.AttrMap[q.name]
 	if !ok {
 		return false
@@ -70,35 +85,6 @@ func (n *Node) matchQuery(query *query) bool {
 	}
 	return isMatch
 }
-
-// func (n *Node) findNodes(query *query) []*Node {
-// 	currentMatch := make([]*Node, 0, 32)
-// 	for _, child := range n.Children {
-// 		if child.matchQuery(query) {
-// 			if query.next != nil {
-// 				subMatchList := child.findNodes(query.next)
-// 				if subMatchList != nil {
-// 					currentMatch = append(currentMatch, subMatchList...)
-// 				}
-// 			} else {
-// 				currentMatch = append(currentMatch, child)
-// 				subMatchList := child.findNodes(query)
-// 				if subMatchList != nil {
-// 					currentMatch = append(currentMatch, subMatchList...)
-// 				}
-// 			}
-// 		} else {
-// 			subMatchList := child.findNodes(query)
-// 			if subMatchList != nil {
-// 				currentMatch = append(currentMatch, subMatchList...)
-// 			}
-// 		}
-// 	}
-// 	if len(currentMatch) == 0 {
-// 		return nil
-// 	}
-// 	return currentMatch
-// }
 
 func (n *Node) findNodes(query *query, parentMatched bool) []*Node {
 	currentMatch := make([]*Node, 0, 32)

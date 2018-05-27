@@ -269,7 +269,7 @@ func parseQ(s string) ([][]q, error) {
 	}
 }
 
-var nameCheckRe = regexp.MustCompile(`^\w+$`)
+var nameCheckRe = regexp.MustCompile(`^(\w+|@content)$`)
 
 func checkName(attrName string) bool {
 	return nameCheckRe.MatchString(attrName)
