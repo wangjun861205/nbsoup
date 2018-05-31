@@ -22,11 +22,9 @@ func TestParse(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	divList, err := FindAll(root, `span[class="inline-hed" & @content*="code"]`)
+	fontList, err := FindAll(root, `font[@content="Make Model"]`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, div := range divList {
-		fmt.Println(div.Content)
-	}
+	fmt.Println(len(fontList))
 }

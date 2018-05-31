@@ -205,8 +205,9 @@ func parseTag(tag *startTag, ep *elemProcessor) (*Node, error) {
 						node.Children = children
 						return node, nil
 					}
+				} else {
+					continue
 				}
-				return nil, ErrEndTagNotMatch
 			}
 		}
 	}

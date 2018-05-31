@@ -36,6 +36,7 @@ var voidTags = map[string]bool{
 	"source":   true,
 	"track":    true,
 	"wbr":      true,
+	"META":     true,
 }
 
 type element interface {
