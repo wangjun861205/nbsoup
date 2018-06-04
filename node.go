@@ -246,3 +246,86 @@ func Parse(html []byte) (*Node, error) {
 	go ep.process()
 	return process(ep)
 }
+
+func (n *Node) FindAll(queryStr string) ([]*Node, error) {
+	query, err := parseQuery(queryStr)
+	if err != nil {
+		return nil, err
+	}
+	nodeChan := n.allChildren()
+	for query != nil {
+		nodeChan = filter(nodeChan, query)
+		query = query.next
+	}
+	nodeList := make([]*Node, 0, 128)
+	for node := range nodeChan {
+		nodeList = append(nodeList, node)
+	}
+	return nodeList, nil
+}
+
+func (n *Node) allChildren() chan *Node {
+	childChan := make(chan *Node)
+	go func() {
+		for _, child := range n.Children {
+			childChan <- child
+			subChan := child.allChildren()
+			for subChild := range subChan {
+				childChan <- subChild
+			}
+		}
+		close(childChan)
+	}()
+	return childChan
+}
+
+func filter(input chan *Node, query *query) chan *Node {
+	outChan := make(chan *Node)
+	go func() {
+		for node := range input {
+			if node.matchQuery(query) {
+				outChan <- node
+			}
+		}
+		close(outChan)
+	}()
+	return outChan
+}
+
+// func (n *Node) rMatch(query *query) chan *Node {
+// 	matchChan := make(chan *Node)
+// 	var wg sync.WaitGroup
+// 	for _, child := range n.Children {
+// 		wg.Add(1)
+// 		go func() {
+// 			if child.matchQuery(query) && child.matchParent(query) {
+// 				fmt.Println(child.Name)
+// 				matchChan <- child
+// 			}
+// 			subChan := child.rMatch(query)
+// 			for subNode := range subChan {
+// 				matchChan <- subNode
+// 			}
+// 			wg.Done()
+// 		}()
+// 	}
+// 	go func() {
+// 		wg.Wait()
+// 		close(matchChan)
+// 	}()
+// 	return matchChan
+// }
+
+func (n *Node) matchParent(query *query) bool {
+	if query.prev == nil {
+		return true
+	}
+	if n.Parent == nil {
+		return false
+	}
+	if !n.Parent.matchQuery(query.prev) {
+		return false
+	} else {
+		return n.Parent.matchParent(query.prev)
+	}
+}

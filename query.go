@@ -44,6 +44,7 @@ type query struct {
 	name      string
 	queryList [][]q
 	next      *query
+	prev      *query
 }
 
 type q struct {
@@ -83,13 +84,6 @@ OUTER:
 	if queryElem == "" {
 		return nil, ErrNoValidQuery
 	}
-	// nameAndAttr := qRe.FindStringSubmatch(queryElem)
-	// name := nameAndAttr[1]
-	// attr := nameAndAttr[2]
-	// qList, err := parseQ(attr)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	subReader := strings.NewReader(queryElem)
 	var name string
 	var attrs string
@@ -125,6 +119,7 @@ SUB:
 			return nil, err
 		}
 		thisQuery.next = nextQuery
+		nextQuery.prev = &thisQuery
 	}
 	return &thisQuery, nil
 }
