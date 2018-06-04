@@ -252,13 +252,18 @@ func (n *Node) FindAll(queryStr string) ([]*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodeChan := n.allChildren()
-	for query != nil {
-		nodeChan = filter(nodeChan, query)
-		query = query.next
+	chanList := []chan *Node{n.allChildren()}
+	for {
+		chanList = append(chanList, filter(chanList[len(chanList)-1], query))
+		if query.next == nil {
+			break
+		} else {
+			chanList = append(chanList, bridgeFilter(chanList[len(chanList)-1]))
+			query = query.next
+		}
 	}
 	nodeList := make([]*Node, 0, 128)
-	for node := range nodeChan {
+	for node := range chanList[len(chanList)-1] {
 		nodeList = append(nodeList, node)
 	}
 	return nodeList, nil
@@ -285,6 +290,19 @@ func filter(input chan *Node, query *query) chan *Node {
 		for node := range input {
 			if node.matchQuery(query) {
 				outChan <- node
+			}
+		}
+		close(outChan)
+	}()
+	return outChan
+}
+
+func bridgeFilter(input chan *Node) chan *Node {
+	outChan := make(chan *Node)
+	go func() {
+		for n := range input {
+			for _, child := range n.Children {
+				outChan <- child
 			}
 		}
 		close(outChan)

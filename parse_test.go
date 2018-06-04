@@ -27,9 +27,12 @@ func TestParse(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fontList, err := root.FindAll(`div[align="center"]`)
+	trs, err := root.FindAll(`table[id="proxylisttable"].tbody.tr`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(len(fontList))
+	for _, tr := range trs {
+		fmt.Println(tr.Name)
+	}
+	fmt.Println(len(trs))
 }
