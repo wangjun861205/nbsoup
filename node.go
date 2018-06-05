@@ -279,7 +279,7 @@ func parseTag(tag *startTag, ep *elemProcessor, parentNode *Node) (*Node, error)
 				children = append(children, childNode)
 			case *endTag:
 				if string(elem.name) != string(tag.name) {
-					if string(elem.name) == parentNode.Name {
+					if parentNode != nil && string(elem.name) == parentNode.Name {
 						ep.elemChan.unread()
 					}
 				}
