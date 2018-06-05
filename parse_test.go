@@ -27,12 +27,18 @@ func TestParse(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	trs, err := root.FindAll(`table[id="proxylisttable"].tbody.tr`)
+	makeModel, err := root.FindAll(`font[@content*="Make Model"]`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, tr := range trs {
-		fmt.Println(tr.Name)
+	tableNode := makeModel[0]
+	for tableNode != nil && tableNode.Name != "table" {
+		tableNode = tableNode.Parent
 	}
-	fmt.Println(len(trs))
+	trs, _ := FindAll(tableNode, `tr`)
+	for _, tr := range trs {
+		tds, _ := tr.FindAll(`td`)
+		fmt.Println(len(tds))
+	}
+
 }

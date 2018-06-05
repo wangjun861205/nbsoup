@@ -125,6 +125,29 @@ func FindAll(node *Node, queryStr string) ([]*Node, error) {
 	return node.findNodes(query, false), nil
 }
 
+// func process(ep *elemProcessor) (*Node, error) {
+// 	var rootTag *startTag
+// OUTER:
+// 	for {
+// 		select {
+// 		case err := <-ep.errChan:
+// 			return nil, err
+// 		case rootElem, ok := <-ep.elemChan:
+// 			if !ok {
+// 				return nil, ErrEmptyNode
+// 			}
+// 			switch r := rootElem.(type) {
+// 			case *startTag:
+// 				rootTag = r
+// 				break OUTER
+// 			default:
+// 				continue
+// 			}
+// 		}
+// 	}
+// 	return parseTag(rootTag, ep)
+// }
+
 func process(ep *elemProcessor) (*Node, error) {
 	var rootTag *startTag
 OUTER:
@@ -132,7 +155,8 @@ OUTER:
 		select {
 		case err := <-ep.errChan:
 			return nil, err
-		case rootElem, ok := <-ep.elemChan:
+		default:
+			rootElem, ok := ep.elemChan.read()
 			if !ok {
 				return nil, ErrEmptyNode
 			}
@@ -145,17 +169,84 @@ OUTER:
 			}
 		}
 	}
-	return parseTag(rootTag, ep)
+	return parseTag(rootTag, ep, nil)
 }
 
-func parseTag(tag *startTag, ep *elemProcessor) (*Node, error) {
+// func parseTag(tag *startTag, ep *elemProcessor) (*Node, error) {
+// 	children := make([]*Node, 0, 32)
+// 	node := fromTag(element(tag))
+// 	for {
+// 		select {
+// 		case err := <-ep.errChan:
+// 			return nil, err
+// 		case nextElem, ok := <-ep.elemChan:
+// 			if !ok {
+// 				switch len(children) {
+// 				case 0:
+// 					return node, nil
+// 				case 1:
+// 					children[0].Parent = node
+// 					node.Children = children
+// 					return node, nil
+// 				default:
+// 					for i := 0; i < len(children)-1; i++ {
+// 						children[i].Next = children[i+1]
+// 						children[i+1].Previous = children[i]
+// 						children[i].Parent = node
+// 					}
+// 					children[len(children)-1].Parent = node
+// 					node.Children = children
+// 					return node, nil
+// 				}
+// 			}
+// 			switch elem := nextElem.(type) {
+// 			case content:
+// 				node.Content += string(elem)
+// 			case *voidTag:
+// 				children = append(children, fromTag(elem))
+// 			case *startTag:
+// 				childNode, err := parseTag(elem, ep)
+// 				if err != nil {
+// 					return nil, err
+// 				}
+// 				children = append(children, childNode)
+// 			case *endTag:
+// 				if string(elem.name) == string(tag.name) {
+// 					switch len(children) {
+// 					case 0:
+// 						return node, nil
+// 					case 1:
+// 						children[0].Parent = node
+// 						node.Children = children
+// 						return node, nil
+// 					default:
+// 						for i := 0; i < len(children)-1; i++ {
+// 							children[i].Next = children[i+1]
+// 							children[i+1].Previous = children[i]
+// 							children[i].Parent = node
+// 						}
+// 						children[len(children)-1].Parent = node
+// 						node.Children = children
+// 						return node, nil
+// 					}
+// 				} else {
+// 					fmt.Println(node.Name)
+// 					continue
+// 				}
+// 			}
+// 		}
+// 	}
+// }
+
+func parseTag(tag *startTag, ep *elemProcessor, parentNode *Node) (*Node, error) {
 	children := make([]*Node, 0, 32)
 	node := fromTag(element(tag))
 	for {
 		select {
 		case err := <-ep.errChan:
 			return nil, err
-		case nextElem, ok := <-ep.elemChan:
+		default:
+			nextElem, ok := ep.elemChan.read()
 			if !ok {
 				switch len(children) {
 				case 0:
@@ -181,32 +272,33 @@ func parseTag(tag *startTag, ep *elemProcessor) (*Node, error) {
 			case *voidTag:
 				children = append(children, fromTag(elem))
 			case *startTag:
-				childNode, err := parseTag(elem, ep)
+				childNode, err := parseTag(elem, ep, node)
 				if err != nil {
 					return nil, err
 				}
 				children = append(children, childNode)
 			case *endTag:
-				if string(elem.name) == string(tag.name) {
-					switch len(children) {
-					case 0:
-						return node, nil
-					case 1:
-						children[0].Parent = node
-						node.Children = children
-						return node, nil
-					default:
-						for i := 0; i < len(children)-1; i++ {
-							children[i].Next = children[i+1]
-							children[i+1].Previous = children[i]
-							children[i].Parent = node
-						}
-						children[len(children)-1].Parent = node
-						node.Children = children
-						return node, nil
+				if string(elem.name) != string(tag.name) {
+					if string(elem.name) == parentNode.Name {
+						ep.elemChan.unread()
 					}
-				} else {
-					continue
+				}
+				switch len(children) {
+				case 0:
+					return node, nil
+				case 1:
+					children[0].Parent = node
+					node.Children = children
+					return node, nil
+				default:
+					for i := 0; i < len(children)-1; i++ {
+						children[i].Next = children[i+1]
+						children[i+1].Previous = children[i]
+						children[i].Parent = node
+					}
+					children[len(children)-1].Parent = node
+					node.Children = children
+					return node, nil
 				}
 			}
 		}

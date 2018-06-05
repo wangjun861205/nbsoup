@@ -44,21 +44,70 @@ type element interface {
 	getAttrList() [][]byte
 }
 
+// type elemProcessor struct {
+// 	htmlProcessor *htmlProcessor
+// 	elemChan      chan element
+// 	errChan       chan error
+// 	stopChan      chan struct{}
+// }
+
 type elemProcessor struct {
 	htmlProcessor *htmlProcessor
-	elemChan      chan element
+	elemChan      *bufElemChan
 	errChan       chan error
 	stopChan      chan struct{}
 }
 
+// func newElemProcessor(hp *htmlProcessor) *elemProcessor {
+// 	return &elemProcessor{
+// 		htmlProcessor: hp,
+// 		elemChan:      make(chan element),
+// 		errChan:       make(chan error),
+// 		stopChan:      make(chan struct{}),
+// 	}
+// }
+
 func newElemProcessor(hp *htmlProcessor) *elemProcessor {
 	return &elemProcessor{
 		htmlProcessor: hp,
-		elemChan:      make(chan element),
+		elemChan:      newBufElemChan(10),
 		errChan:       make(chan error),
 		stopChan:      make(chan struct{}),
 	}
 }
+
+// func (ep *elemProcessor) process() {
+// 	for {
+// 		select {
+// 		case <-ep.stopChan:
+// 			close(ep.htmlProcessor.stopChan)
+// 			continue
+// 		case err := <-ep.htmlProcessor.errChan:
+// 			ep.errChan <- err
+// 			close(ep.elemChan)
+// 			return
+// 		case b, ok := <-ep.htmlProcessor.byteChan:
+// 			if !ok {
+// 				close(ep.elemChan)
+// 				return
+// 			}
+// 			if !isTag(b) {
+// 				ep.elemChan <- content(b)
+// 				continue
+// 			}
+// 			switch {
+// 			case isCommentTag(b):
+// 				ep.elemChan <- ep.parseCommentTag(b)
+// 			case isVoidTag(b):
+// 				ep.elemChan <- ep.parseVoidTag(b)
+// 			case isEndTag(b):
+// 				ep.elemChan <- ep.parseEndTag(b)
+// 			default:
+// 				ep.elemChan <- ep.parseStartTag(b)
+// 			}
+// 		}
+// 	}
+// }
 
 func (ep *elemProcessor) process() {
 	for {
@@ -68,26 +117,26 @@ func (ep *elemProcessor) process() {
 			continue
 		case err := <-ep.htmlProcessor.errChan:
 			ep.errChan <- err
-			close(ep.elemChan)
+			ep.elemChan.close()
 			return
 		case b, ok := <-ep.htmlProcessor.byteChan:
 			if !ok {
-				close(ep.elemChan)
+				ep.elemChan.close()
 				return
 			}
 			if !isTag(b) {
-				ep.elemChan <- content(b)
+				ep.elemChan.write(content(b))
 				continue
 			}
 			switch {
 			case isCommentTag(b):
-				ep.elemChan <- ep.parseCommentTag(b)
+				ep.elemChan.write(ep.parseCommentTag(b))
 			case isVoidTag(b):
-				ep.elemChan <- ep.parseVoidTag(b)
+				ep.elemChan.write(ep.parseVoidTag(b))
 			case isEndTag(b):
-				ep.elemChan <- ep.parseEndTag(b)
+				ep.elemChan.write(ep.parseEndTag(b))
 			default:
-				ep.elemChan <- ep.parseStartTag(b)
+				ep.elemChan.write(ep.parseStartTag(b))
 			}
 		}
 	}
