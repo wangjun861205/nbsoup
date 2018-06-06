@@ -436,3 +436,11 @@ func (n *Node) matchParent(query *query) bool {
 		return n.Parent.matchParent(query.prev)
 	}
 }
+
+func (n *Node) GetAllContent() string {
+	c := n.Content
+	for _, child := range n.Children {
+		c += child.GetAllContent()
+	}
+	return c
+}

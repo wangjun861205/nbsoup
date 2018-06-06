@@ -4,16 +4,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"testing"
 )
 
 func TestParse(t *testing.T) {
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6061", nil))
-	}()
 	f, err := os.Open("test.html")
 	if err != nil {
 		log.Fatal(err)
@@ -27,18 +23,34 @@ func TestParse(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	makeModel, _ := root.FindAll(`font[@content*="Make Model"]`)
-	table := makeModel[0]
-	for table != nil && table.Name != "table" {
-		table = table.Parent
+	makeModels, _ := root.FindAll(`font[@content*="Make Model"]`)
+	makeModel := makeModels[0]
+	tableNode := makeModel.Parent
+	for tableNode != nil && tableNode.Name != "table" {
+		tableNode = tableNode.Parent
 	}
-	trs, _ := table.FindAll(`tr`)
+	trs, _ := tableNode.FindAll(`tr`)
+	fmt.Println("row numbers:", len(trs))
 	for _, tr := range trs {
-		fonts, _ := tr.FindAll(`font`)
-		var text string
-		for _, font := range fonts {
-			text += font.Content + ","
+		tds, _ := tr.FindAll("td")
+		if len(tds) != 2 {
+			continue
 		}
-		fmt.Println(text)
+		fmt.Println(tds[0].GetAllContent(), ":", tds[1].GetAllContent())
+		// 	nameFonts, _ := tds[0].FindAll("font")
+		// 	valueFonts, _ := tds[1].FindAll("font")
+		// 	if len(nameFonts) == 0 || len(valueFonts) == 0 {
+		// 		continue
+		// 	}
+		// 	var name string
+		// 	var value string
+		// 	for _, n := range nameFonts {
+		// 		name += n.Content
+		// 	}
+		// 	for _, v := range valueFonts {
+		// 		value += v.Content
+		// 	}
+		// 	fmt.Println(name, ":", value)
+		// }
 	}
 }
