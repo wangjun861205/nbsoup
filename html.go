@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"regexp"
 )
 
 var ErrHTMLProcessorStop = errors.New("htmlProcessor has been stopped")
@@ -12,6 +13,8 @@ var ignoreChars = map[byte]bool{
 	'\r': true,
 	'\n': true,
 }
+
+var replaceRe = regexp.MustCompile(`(\r+|\n+| +)`)
 
 type htmlProcessor struct {
 	byteChan chan []byte
@@ -28,6 +31,8 @@ func newHTMLProcessor() *htmlProcessor {
 }
 
 func (hp *htmlProcessor) process(html []byte) {
+	html = replaceRe.ReplaceAll(html, []byte(" "))
+	html = replaceRe.ReplaceAll(html, []byte(" "))
 	reader := bytes.NewReader(html)
 	tag := make([]byte, 0, 512)
 	content := make([]byte, 0, 1<<16)
@@ -50,8 +55,8 @@ func (hp *htmlProcessor) process(html []byte) {
 				}
 			}
 			switch {
-			case ignoreChars[b]:
-				continue
+			// case ignoreChars[b]:
+			// 	continue
 			case b == '<':
 				if ct := bytes.Trim(content, " \t"); len(ct) > 0 {
 					hp.byteChan <- ct

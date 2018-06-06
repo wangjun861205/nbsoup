@@ -9,3 +9,7 @@ func (c content) getName() []byte {
 func (c content) getAttrList() [][]byte {
 	return nil
 }
+
+func (c content) String() string {
+	return "<text content>"
+}

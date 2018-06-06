@@ -148,15 +148,15 @@ func FindAll(node *Node, queryStr string) ([]*Node, error) {
 // 	return parseTag(rootTag, ep)
 // }
 
-func process(ep *elemProcessor) (*Node, error) {
+func process(ec *elemCorrector) (*Node, error) {
 	var rootTag *startTag
 OUTER:
 	for {
 		select {
-		case err := <-ep.errChan:
+		case err := <-ec.errChan:
 			return nil, err
 		default:
-			rootElem, ok := ep.elemChan.read()
+			rootElem, ok := ec.elemChan.read()
 			if !ok {
 				return nil, ErrEmptyNode
 			}
@@ -169,7 +169,7 @@ OUTER:
 			}
 		}
 	}
-	return parseTag(rootTag, ep, nil)
+	return parseTag(rootTag, ec)
 }
 
 // func parseTag(tag *startTag, ep *elemProcessor) (*Node, error) {
@@ -238,15 +238,15 @@ OUTER:
 // 	}
 // }
 
-func parseTag(tag *startTag, ep *elemProcessor, parentNode *Node) (*Node, error) {
+func parseTag(tag *startTag, ec *elemCorrector) (*Node, error) {
 	children := make([]*Node, 0, 32)
 	node := fromTag(element(tag))
 	for {
 		select {
-		case err := <-ep.errChan:
+		case err := <-ec.errChan:
 			return nil, err
 		default:
-			nextElem, ok := ep.elemChan.read()
+			nextElem, ok := ec.elemChan.read()
 			if !ok {
 				switch len(children) {
 				case 0:
@@ -272,17 +272,12 @@ func parseTag(tag *startTag, ep *elemProcessor, parentNode *Node) (*Node, error)
 			case *voidTag:
 				children = append(children, fromTag(elem))
 			case *startTag:
-				childNode, err := parseTag(elem, ep, node)
+				childNode, err := parseTag(elem, ec)
 				if err != nil {
 					return nil, err
 				}
 				children = append(children, childNode)
 			case *endTag:
-				if string(elem.name) != string(tag.name) {
-					if parentNode != nil && string(elem.name) == parentNode.Name {
-						ep.elemChan.unread()
-					}
-				}
 				switch len(children) {
 				case 0:
 					return node, nil
@@ -334,9 +329,11 @@ func parseAttrs(attrList [][]byte) map[string]string {
 func Parse(html []byte) (*Node, error) {
 	hp := newHTMLProcessor()
 	ep := newElemProcessor(hp)
+	ec := newElemCorrector(ep)
 	go hp.process(html)
 	go ep.process()
-	return process(ep)
+	go ec.process()
+	return process(ec)
 }
 
 func (n *Node) FindAll(queryStr string) ([]*Node, error) {

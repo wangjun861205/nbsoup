@@ -27,18 +27,18 @@ func TestParse(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	makeModel, err := root.FindAll(`font[@content*="Make Model"]`)
-	if err != nil {
-		log.Fatal(err)
+	makeModel, _ := root.FindAll(`font[@content*="Make Model"]`)
+	table := makeModel[0]
+	for table != nil && table.Name != "table" {
+		table = table.Parent
 	}
-	tableNode := makeModel[0]
-	for tableNode != nil && tableNode.Name != "table" {
-		tableNode = tableNode.Parent
-	}
-	trs, _ := FindAll(tableNode, `tr`)
+	trs, _ := table.FindAll(`tr`)
 	for _, tr := range trs {
-		tds, _ := tr.FindAll(`td`)
-		fmt.Println(len(tds))
+		fonts, _ := tr.FindAll(`font`)
+		var text string
+		for _, font := range fonts {
+			text += font.Content + ","
+		}
+		fmt.Println(text)
 	}
-
 }

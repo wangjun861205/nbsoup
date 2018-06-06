@@ -2,6 +2,7 @@ package nbsoup
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 )
 
@@ -42,70 +43,38 @@ var voidTags = map[string]bool{
 type element interface {
 	getName() []byte
 	getAttrList() [][]byte
+	fmt.Stringer
 }
-
-// type elemProcessor struct {
-// 	htmlProcessor *htmlProcessor
-// 	elemChan      chan element
-// 	errChan       chan error
-// 	stopChan      chan struct{}
-// }
 
 type elemProcessor struct {
 	htmlProcessor *htmlProcessor
-	elemChan      *bufElemChan
+	elemChan      chan element
 	errChan       chan error
 	stopChan      chan struct{}
 }
 
-// func newElemProcessor(hp *htmlProcessor) *elemProcessor {
-// 	return &elemProcessor{
-// 		htmlProcessor: hp,
-// 		elemChan:      make(chan element),
-// 		errChan:       make(chan error),
-// 		stopChan:      make(chan struct{}),
-// 	}
+// type elemProcessor struct {
+// 	htmlProcessor *htmlProcessor
+// 	elemChan      *bufElemChan
+// 	errChan       chan error
+// 	stopChan      chan struct{}
 // }
 
 func newElemProcessor(hp *htmlProcessor) *elemProcessor {
 	return &elemProcessor{
 		htmlProcessor: hp,
-		elemChan:      newBufElemChan(10),
+		elemChan:      make(chan element),
 		errChan:       make(chan error),
 		stopChan:      make(chan struct{}),
 	}
 }
 
-// func (ep *elemProcessor) process() {
-// 	for {
-// 		select {
-// 		case <-ep.stopChan:
-// 			close(ep.htmlProcessor.stopChan)
-// 			continue
-// 		case err := <-ep.htmlProcessor.errChan:
-// 			ep.errChan <- err
-// 			close(ep.elemChan)
-// 			return
-// 		case b, ok := <-ep.htmlProcessor.byteChan:
-// 			if !ok {
-// 				close(ep.elemChan)
-// 				return
-// 			}
-// 			if !isTag(b) {
-// 				ep.elemChan <- content(b)
-// 				continue
-// 			}
-// 			switch {
-// 			case isCommentTag(b):
-// 				ep.elemChan <- ep.parseCommentTag(b)
-// 			case isVoidTag(b):
-// 				ep.elemChan <- ep.parseVoidTag(b)
-// 			case isEndTag(b):
-// 				ep.elemChan <- ep.parseEndTag(b)
-// 			default:
-// 				ep.elemChan <- ep.parseStartTag(b)
-// 			}
-// 		}
+// func newElemProcessor(hp *htmlProcessor) *elemProcessor {
+// 	return &elemProcessor{
+// 		htmlProcessor: hp,
+// 		elemChan:      newBufElemChan(),
+// 		errChan:       make(chan error),
+// 		stopChan:      make(chan struct{}),
 // 	}
 // }
 
@@ -117,30 +86,67 @@ func (ep *elemProcessor) process() {
 			continue
 		case err := <-ep.htmlProcessor.errChan:
 			ep.errChan <- err
-			ep.elemChan.close()
+			close(ep.elemChan)
 			return
 		case b, ok := <-ep.htmlProcessor.byteChan:
 			if !ok {
-				ep.elemChan.close()
+				close(ep.elemChan)
 				return
 			}
 			if !isTag(b) {
-				ep.elemChan.write(content(b))
+				bc := make([]byte, len(b))
+				copy(bc, b)
+				ep.elemChan <- content(bc)
 				continue
 			}
 			switch {
 			case isCommentTag(b):
-				ep.elemChan.write(ep.parseCommentTag(b))
+				ep.elemChan <- ep.parseCommentTag(b)
 			case isVoidTag(b):
-				ep.elemChan.write(ep.parseVoidTag(b))
+				ep.elemChan <- ep.parseVoidTag(b)
 			case isEndTag(b):
-				ep.elemChan.write(ep.parseEndTag(b))
+				ep.elemChan <- ep.parseEndTag(b)
 			default:
-				ep.elemChan.write(ep.parseStartTag(b))
+				ep.elemChan <- ep.parseStartTag(b)
 			}
 		}
 	}
 }
+
+// func (ep *elemProcessor) process() {
+// 	for {
+// 		select {
+// 		case <-ep.stopChan:
+// 			close(ep.htmlProcessor.stopChan)
+// 			continue
+// 		case err := <-ep.htmlProcessor.errChan:
+// 			ep.errChan <- err
+// 			ep.elemChan.close()
+// 			return
+// 		case b, ok := <-ep.htmlProcessor.byteChan:
+// 			if !ok {
+// 				ep.elemChan.close()
+// 				return
+// 			}
+// 			if !isTag(b) {
+// 				fmt.Println("===================", string(b))
+// 				c := content(b)
+// 				ep.elemChan.write(c)
+// 				continue
+// 			}
+// 			switch {
+// 			case isCommentTag(b):
+// 				ep.elemChan.write(ep.parseCommentTag(b))
+// 			case isVoidTag(b):
+// 				ep.elemChan.write(ep.parseVoidTag(b))
+// 			case isEndTag(b):
+// 				ep.elemChan.write(ep.parseEndTag(b))
+// 			default:
+// 				ep.elemChan.write(ep.parseStartTag(b))
+// 			}
+// 		}
+// 	}
+// }
 
 func (ep *elemProcessor) parseCommentTag(b []byte) *commentTag {
 	return &commentTag{bytes.Trim(b, "<>! ")}
@@ -267,4 +273,95 @@ func isEndTag(elem []byte) bool {
 func isVoidTag(elem []byte) bool {
 	name := bytes.Split(bytes.Trim(elem, "<>/ "), []byte(" "))[0]
 	return voidTags[string(name)]
+}
+
+type elemCorrector struct {
+	ep             *elemProcessor
+	elemChan       *bufElemChan
+	startTagBuffer []*startTag
+	buffer         []element
+	errChan        chan error
+}
+
+func newElemCorrector(ep *elemProcessor) *elemCorrector {
+	return &elemCorrector{
+		ep,
+		newBufElemChan(),
+		make([]*startTag, 0, 64),
+		make([]element, 0, 128),
+		make(chan error),
+	}
+}
+
+func (ec *elemCorrector) process() {
+OUTER:
+	for {
+		select {
+		case err := <-ec.ep.errChan:
+			ec.errChan <- err
+			ec.elemChan.close()
+			return
+		case elem, ok := <-ec.ep.elemChan:
+			if !ok {
+				break OUTER
+			}
+			switch e := elem.(type) {
+			case *voidTag, content:
+				ec.buffer = append(ec.buffer, e)
+			case *startTag:
+				if string(e.name) == "center" {
+					continue
+				}
+				ec.startTagBuffer = append(ec.startTagBuffer, e)
+				ec.buffer = append(ec.buffer, e)
+			case *endTag:
+				if string(e.name) == "center" {
+					continue
+				}
+				if len(ec.startTagBuffer) == 0 {
+					continue
+				}
+				if string(e.name) == string(ec.startTagBuffer[len(ec.startTagBuffer)-1].name) {
+					ec.startTagBuffer = ec.startTagBuffer[:len(ec.startTagBuffer)-1]
+					ec.buffer = append(ec.buffer, e)
+				} else {
+					if index := ec.lastMatchedStartTagIndex(e); index == -1 {
+						continue
+					} else {
+						// fmt.Println("current end tag:", e)
+						// fmt.Println("before:", ec.startTagBuffer)
+						l := make([]*startTag, len(ec.startTagBuffer[index:]))
+						copy(l, ec.startTagBuffer[index:])
+						ec.startTagBuffer = ec.startTagBuffer[:index]
+						for i := len(l) - 1; i >= 1; i-- {
+							fakeEndTag := &endTag{name: l[i].name}
+							// fmt.Println("add fake end tag:", fakeEndTag)
+							ec.buffer = append(ec.buffer, fakeEndTag)
+						}
+						// fmt.Println("after:", ec.startTagBuffer)
+						ec.buffer = append(ec.buffer, e)
+					}
+				}
+			}
+		}
+	}
+	if len(ec.startTagBuffer) != 0 {
+		for i := len(ec.startTagBuffer) - 1; i >= 0; i-- {
+			fakeEndTag := &endTag{name: ec.startTagBuffer[i].name}
+			ec.buffer = append(ec.buffer, fakeEndTag)
+		}
+	}
+	for _, e := range ec.buffer {
+		ec.elemChan.write(e)
+	}
+	ec.elemChan.close()
+}
+
+func (ec *elemCorrector) lastMatchedStartTagIndex(et *endTag) int {
+	for i := len(ec.startTagBuffer) - 1; i >= 0; i-- {
+		if string(ec.startTagBuffer[i].name) == string(et.name) {
+			return i
+		}
+	}
+	return -1
 }
