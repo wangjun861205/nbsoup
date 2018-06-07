@@ -440,7 +440,7 @@ func (n *Node) matchParent(query *query) bool {
 func (n *Node) GetAllContent() string {
 	c := n.Content
 	for _, child := range n.Children {
-		c += child.GetAllContent()
+		c += " " + child.GetAllContent()
 	}
 	return c
 }

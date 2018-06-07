@@ -14,7 +14,7 @@ var ignoreChars = map[byte]bool{
 	'\n': true,
 }
 
-var replaceRe = regexp.MustCompile(`(\r+|\n+| +)`)
+var replaceRe = regexp.MustCompile(`(\r+|\n+| +|\t+)`)
 
 type htmlProcessor struct {
 	byteChan chan []byte
