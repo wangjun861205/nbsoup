@@ -338,19 +338,19 @@ OUTER:
 					ec.buffer = append(ec.buffer, e)
 				} else {
 					if index := ec.lastMatchedStartTagIndex(e); index == -1 {
-						fmt.Println("start tags now:", ec.startTagBuffer)
-						fmt.Println("drop tag:", e)
+						// fmt.Println("start tags now:", ec.startTagBuffer)
+						// fmt.Println("drop tag:", e)
 						continue
 					} else {
 						if ec.calculateBalance(allElems, e) >= 0 {
-							fmt.Println("current end tag:", e)
-							fmt.Println("before:", ec.startTagBuffer)
+							// fmt.Println("current end tag:", e)
+							// fmt.Println("before:", ec.startTagBuffer)
 							l := make([]*startTag, len(ec.startTagBuffer[index:]))
 							copy(l, ec.startTagBuffer[index:])
 							ec.startTagBuffer = ec.startTagBuffer[:index]
 							for i := len(l) - 1; i >= 1; i-- {
 								fakeEndTag := &endTag{name: l[i].name}
-								fmt.Println("add fake end tag:", fakeEndTag)
+								// fmt.Println("add fake end tag:", fakeEndTag)
 								ec.buffer = append(ec.buffer, fakeEndTag)
 								newList := make([]element, len(allElems)+1)
 								copy(newList[:index], allElems[:index])
@@ -359,7 +359,7 @@ OUTER:
 								allElems = newList
 								index += 1
 							}
-							fmt.Println("after:", ec.startTagBuffer)
+							// fmt.Println("after:", ec.startTagBuffer)
 							ec.buffer = append(ec.buffer, e)
 						} else {
 							newList := make([]element, len(allElems)-1)
