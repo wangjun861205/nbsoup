@@ -37,20 +37,5 @@ func TestParse(t *testing.T) {
 			continue
 		}
 		fmt.Println(tds[0].GetAllContent(), ":", tds[1].GetAllContent())
-		// 	nameFonts, _ := tds[0].FindAll("font")
-		// 	valueFonts, _ := tds[1].FindAll("font")
-		// 	if len(nameFonts) == 0 || len(valueFonts) == 0 {
-		// 		continue
-		// 	}
-		// 	var name string
-		// 	var value string
-		// 	for _, n := range nameFonts {
-		// 		name += n.Content
-		// 	}
-		// 	for _, v := range valueFonts {
-		// 		value += v.Content
-		// 	}
-		// 	fmt.Println(name, ":", value)
-		// }
 	}
 }

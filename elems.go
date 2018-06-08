@@ -294,6 +294,16 @@ func newElemCorrector(ep *elemProcessor) *elemCorrector {
 }
 
 func (ec *elemCorrector) process() {
+	allElems := make([]element, 0, 1024)
+	for elem := range ec.ep.elemChan {
+		allElems = append(allElems, elem)
+	}
+	allElemChan := make(chan element, len(allElems))
+	for _, elem := range allElems {
+		allElemChan <- elem
+	}
+	close(allElemChan)
+	index := -1
 OUTER:
 	for {
 		select {
@@ -301,10 +311,12 @@ OUTER:
 			ec.errChan <- err
 			ec.elemChan.close()
 			return
-		case elem, ok := <-ec.ep.elemChan:
+		// case elem, ok := <-ec.ep.elemChan:
+		case elem, ok := <-allElemChan:
 			if !ok {
 				break OUTER
 			}
+			index += 1
 			switch e := elem.(type) {
 			case *voidTag, content:
 				ec.buffer = append(ec.buffer, e)
@@ -326,21 +338,74 @@ OUTER:
 					ec.buffer = append(ec.buffer, e)
 				} else {
 					if index := ec.lastMatchedStartTagIndex(e); index == -1 {
+						fmt.Println("start tags now:", ec.startTagBuffer)
+						fmt.Println("drop tag:", e)
 						continue
 					} else {
-						// fmt.Println("current end tag:", e)
-						// fmt.Println("before:", ec.startTagBuffer)
-						l := make([]*startTag, len(ec.startTagBuffer[index:]))
-						copy(l, ec.startTagBuffer[index:])
-						ec.startTagBuffer = ec.startTagBuffer[:index]
-						for i := len(l) - 1; i >= 1; i-- {
-							fakeEndTag := &endTag{name: l[i].name}
-							// fmt.Println("add fake end tag:", fakeEndTag)
-							ec.buffer = append(ec.buffer, fakeEndTag)
+						if ec.calculateBalance(allElems, e) >= 0 {
+							fmt.Println("current end tag:", e)
+							fmt.Println("before:", ec.startTagBuffer)
+							l := make([]*startTag, len(ec.startTagBuffer[index:]))
+							copy(l, ec.startTagBuffer[index:])
+							ec.startTagBuffer = ec.startTagBuffer[:index]
+							for i := len(l) - 1; i >= 1; i-- {
+								fakeEndTag := &endTag{name: l[i].name}
+								fmt.Println("add fake end tag:", fakeEndTag)
+								ec.buffer = append(ec.buffer, fakeEndTag)
+								newList := make([]element, len(allElems)+1)
+								copy(newList[:index], allElems[:index])
+								newList[index] = fakeEndTag
+								copy(newList[index+1:], allElems[index:])
+								allElems = newList
+								index += 1
+							}
+							fmt.Println("after:", ec.startTagBuffer)
+							ec.buffer = append(ec.buffer, e)
+						} else {
+							newList := make([]element, len(allElems)-1)
+							copy(newList[:index], allElems[:index])
+							copy(newList[index:], allElems[index+1:])
+							allElems = newList
+							index -= 1
+							continue
 						}
-						// fmt.Println("after:", ec.startTagBuffer)
-						ec.buffer = append(ec.buffer, e)
 					}
+					// if string(e.name) == string(ec.startTagBuffer[len(ec.startTagBuffer)-1].name) {
+					// 	ec.startTagBuffer = ec.startTagBuffer[:len(ec.startTagBuffer)-1]
+					// 	ec.buffer = append(ec.buffer, e)
+					// } else {
+					// 	if index := ec.lastMatchedStartTagIndex(e); index == -1 {
+					// 		fmt.Println("start tags now:", ec.startTagBuffer)
+					// 		fmt.Println("drop tag:", e)
+					// 		continue
+					// 	} else {
+					// 		fmt.Println("current end tag:", e)
+					// 		fmt.Println("before:", ec.startTagBuffer)
+					// 		l := make([]*startTag, len(ec.startTagBuffer[index:]))
+					// 		copy(l, ec.startTagBuffer[index:])
+					// 		ec.startTagBuffer = ec.startTagBuffer[:index]
+					// 		for i := len(l) - 1; i >= 1; i-- {
+					// 			fakeEndTag := &endTag{name: l[i].name}
+					// 			fmt.Println("add fake end tag:", fakeEndTag)
+					// 			ec.buffer = append(ec.buffer, fakeEndTag)
+					// 		}
+					// 		fmt.Println("after:", ec.startTagBuffer)
+					// 		ec.buffer = append(ec.buffer, e)
+					// 	}
+
+					// if !ec.isSkipMatch(e) {
+					// 	fmt.Println("start tags now:", ec.startTagBuffer)
+					// 	fmt.Println("drop tag:", e)
+					// 	continue
+					// } else {
+					// 	fmt.Println("current end tag:", e)
+					// 	fmt.Println("before:", ec.startTagBuffer)
+					// 	fakeEndTag := &endTag{name: ec.startTagBuffer[len(ec.startTagBuffer)-1].name}
+					// 	fmt.Println("add fake end tag:", fakeEndTag)
+					// 	ec.buffer = append(ec.buffer, fakeEndTag)
+					// 	fmt.Println("after:", ec.startTagBuffer)
+					// 	ec.buffer = append(ec.buffer, e)
+					// }
 				}
 			}
 		}
@@ -364,4 +429,28 @@ func (ec *elemCorrector) lastMatchedStartTagIndex(et *endTag) int {
 		}
 	}
 	return -1
+}
+
+func (ec *elemCorrector) isSkipMatch(et *endTag) bool {
+	if len(ec.startTagBuffer) < 2 {
+		return false
+	}
+	if string(ec.startTagBuffer[len(ec.startTagBuffer)-2].name) == string(et.name) {
+		return true
+	}
+	return false
+}
+
+func (ec *elemCorrector) calculateBalance(l []element, et *endTag) int {
+	var balance int
+	for _, elem := range l {
+		if string(elem.getName()) == string(et.name) {
+			if _, ok := elem.(*startTag); ok {
+				balance += 1
+			} else {
+				balance -= 1
+			}
+		}
+	}
+	return balance
 }

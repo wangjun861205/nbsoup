@@ -55,8 +55,6 @@ func (hp *htmlProcessor) process(html []byte) {
 				}
 			}
 			switch {
-			// case ignoreChars[b]:
-			// 	continue
 			case b == '<':
 				if ct := bytes.Trim(content, " \t"); len(ct) > 0 {
 					hp.byteChan <- ct
