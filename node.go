@@ -5,6 +5,8 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+
+	"golang.org/x/net/html"
 )
 
 var ErrEndTagNotMatch = errors.New("end tag not match start tag")
@@ -326,14 +328,66 @@ func parseAttrs(attrList [][]byte) map[string]string {
 	return attrMap
 }
 
-func Parse(html []byte) (*Node, error) {
-	hp := newHTMLProcessor()
-	ep := newElemProcessor(hp)
-	ec := newElemCorrector(ep)
-	go hp.process(html)
-	go ep.process()
-	go ec.process()
-	return process(ec)
+// func Parse(html []byte) (*Node, error) {
+// 	hp := newHTMLProcessor()
+// 	ep := newElemProcessor(hp)
+// 	ec := newElemCorrector(ep)
+// 	go hp.process(html)
+// 	go ep.process()
+// 	go ec.process()
+// 	return process(ec)
+// }
+
+func Parse(hb []byte) (*Node, error) {
+	hb = replaceRe.ReplaceAll(hb, []byte(" "))
+	htmlNode, err := html.Parse(bytes.NewReader(hb))
+	if err != nil {
+		return nil, err
+	}
+	root := genNode(htmlNode, nil)
+	return root, nil
+}
+
+func genAttrMap(l []html.Attribute) map[string]string {
+	m := make(map[string]string)
+	for _, attr := range l {
+		m[attr.Key] = attr.Val
+	}
+	return m
+}
+
+func genNode(n *html.Node, parent *Node) *Node {
+	if n.Type == html.TextNode && n.Data != "" {
+		parent.Content += n.Data
+		return nil
+	}
+	node := &Node{
+		Name:    n.DataAtom.String(),
+		AttrMap: genAttrMap(n.Attr),
+		// Content:  n.Data,
+		Parent:   parent,
+		Next:     nil,
+		Previous: nil,
+	}
+	childList := make([]*Node, 0, 64)
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		childNode := genNode(child, node)
+		if childNode == nil {
+			continue
+		}
+		// childList = append(childList, genNode(child, node))
+		childList = append(childList, childNode)
+	}
+	node.Children = childList
+	genSibling(node)
+	return node
+}
+
+func genSibling(n *Node) {
+	for i := 0; i < len(n.Children)-1; i++ {
+		n.Children[i].Next = n.Children[i+1]
+		n.Children[i+1].Previous = n.Children[i]
+	}
 }
 
 func (n *Node) FindAll(queryStr string) ([]*Node, error) {
@@ -442,5 +496,5 @@ func (n *Node) GetAllContent() string {
 	for _, child := range n.Children {
 		c += " " + child.GetAllContent()
 	}
-	return c
+	return strings.Trim(c, " ")
 }
